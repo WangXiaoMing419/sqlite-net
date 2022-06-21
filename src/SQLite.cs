@@ -2373,6 +2373,12 @@ namespace SQLite
 	}
 
 	[AttributeUsage (AttributeTargets.Property)]
+	public class DefaultAttribute : Attribute
+	{
+		public string Value { get; set; }
+	}
+
+	[AttributeUsage (AttributeTargets.Property)]
 	public class UniqueAttribute : IndexedAttribute
 	{
 		public override bool Unique {
@@ -2601,6 +2607,7 @@ namespace SQLite
 
 			public bool IsNullable { get; private set; }
 
+			public string Default { get; private set; }
 			public int? MaxStringLength { get; private set; }
 
 			public bool StoreAsText { get; private set; }
@@ -2641,6 +2648,7 @@ namespace SQLite
 				}
 				IsNullable = !(IsPK || Orm.IsMarkedNotNull (member));
 				MaxStringLength = Orm.MaxStringLength (member);
+				Default = Orm.Default (member);
 
 				StoreAsText = memberType.GetTypeInfo ().CustomAttributes.Any (x => x.AttributeType == typeof (StoreAsTextAttribute));
 			}
@@ -2775,6 +2783,9 @@ namespace SQLite
 			}
 			if (!p.IsNullable) {
 				decl += "not null ";
+			}
+			if (!string.IsNullOrEmpty (p.Default)) {
+				decl += "default " + p.Collation + " ";
 			}
 			if (!string.IsNullOrEmpty (p.Collation)) {
 				decl += "collate " + p.Collation + " ";
@@ -2917,6 +2928,16 @@ namespace SQLite
 		}
 
 		public static int? MaxStringLength (PropertyInfo p) => MaxStringLength((MemberInfo)p);
+
+		public static string Default (MemberInfo p)
+		{
+			var attr = p.CustomAttributes.FirstOrDefault (x => x.AttributeType == typeof (DefaultAttribute));
+			if (attr != null) {
+				var attrv = (DefaultAttribute)InflateAttribute (attr);
+				return attrv.Value;
+			}
+			return null;
+		}
 
 		public static bool IsMarkedNotNull (MemberInfo p)
 		{
